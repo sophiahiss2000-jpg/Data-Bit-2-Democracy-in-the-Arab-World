@@ -1,4 +1,3 @@
-
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
@@ -64,25 +63,26 @@
 		{ year: "2023-2024", country: "Palestine", pct: 73.6653206159991 },
 		{ year: "2023-2024", country: "Tunisia", pct: 78.7645033360715 }
 	];
+
 	const countries = [...new Set(data.map((d) => d.country))];
 
-		let selectedCountries = $state([...countries]);
-		let PlotlyInstance: any;
+	let selectedCountries: string[] = $state([...countries]);
+	let PlotlyInstance: any;
 
 	const countryColors: Record<string, string> = {
-		Algeria: "#19b5d8",
-		Egypt: "#ff8c1a",
-		Iraq: "#2ca5c",
-		Jordan: "#e31a1c",
-		Kuwait: "#1565c0",
-		Lebanon: "#8c564b",
-		Libya: "#4967bd",
-		Morocco: "#1f9d2f",
+		Algeria:   "#19b5d8",
+		Egypt:     "#ff8c1a",
+		Iraq:      "#2ca02c",
+		Jordan:    "#e31a1c",
+		Kuwait:    "#1565c0",
+		Lebanon:   "#8c564b",
+		Libya:     "#4967bd",
+		Morocco:   "#1f9d2f",
 		Palestine: "#e83e99",
-		Qatar: "#1976d2",
-		Sudan: "#7f7f7f",
-		Tunisia: "#b0aa00",
-		Yemen: "#12b5d0"
+		Qatar:     "#1976d2",
+		Sudan:     "#7f7f7f",
+		Tunisia:   "#b0aa00",
+		Yemen:     "#12b5d0"
 	};
 
 	function getCountryColor(country: string) {
@@ -93,53 +93,13 @@
 		return `${value.toFixed(1).replace('.', ',')}%`;
 	}
 
-	function spreadLastLabels(
-	points: { country: string; year: string; pct: number }[],
-	minGap = 2.2,
-	minY = 20,
-	maxY = 100
-) {
-	const sorted = [...points]
-		.sort((a, b) => a.pct - b.pct)
-		.map((d) => ({
-			...d,
-			originalY: d.pct,
-			labelY: d.pct
-		}));
-
-	for (let i = 1; i < sorted.length; i++) {
-		if (sorted[i].labelY - sorted[i - 1].labelY < minGap) {
-			sorted[i].labelY = sorted[i - 1].labelY + minGap;
-		}
-	}
-
-	let overflowTop = sorted[sorted.length - 1].labelY - maxY;
-	if (overflowTop > 0) {
-		for (const d of sorted) d.labelY -= overflowTop;
-	}
-
-	for (let i = sorted.length - 2; i >= 0; i--) {
-		if (sorted[i + 1].labelY - sorted[i].labelY < minGap) {
-			sorted[i].labelY = sorted[i + 1].labelY - minGap;
-		}
-	}
-
-	let overflowBottom = minY - sorted[0].labelY;
-	if (overflowBottom > 0) {
-		for (const d of sorted) d.labelY += overflowBottom;
-	}
-
-	return sorted;
-}
 	function updatePlotVisibility() {
-	if (!PlotlyInstance) return;
-
-	const visible = countries.map((country) =>
-		selectedCountries.includes(country) ? true : "legendonly"
-	);
-
-	PlotlyInstance.restyle("plot", { visible });
-}
+		if (!PlotlyInstance) return;
+		const visible = countries.map((country) =>
+			selectedCountries.includes(country) ? true : "legendonly"
+		);
+		PlotlyInstance.restyle("plot", { visible });
+	}
 
 	function setCountry(country: string, checked: boolean) {
 		if (checked) {
@@ -147,7 +107,6 @@
 		} else {
 			selectedCountries = selectedCountries.filter((c) => c !== country);
 		}
-
 		updatePlotVisibility();
 	}
 
@@ -160,9 +119,10 @@
 		selectedCountries = [];
 		updatePlotVisibility();
 	}
+
 	onMount(async () => {
 		if (!browser) return;
-		
+
 		const { default: Plotly } = await import('plotly.js-dist-min');
 		PlotlyInstance = Plotly;
 
@@ -176,28 +136,23 @@
 			const color = getCountryColor(country);
 
 			traces.push({
-				x: countryData.map((d) => d.year),
-				y: countryData.map((d) => d.pct),
+				x: yearLevels,
+				y: yearLevels.map((year) => {
+					const point = countryData.find((d) => d.year === year);
+					return point ? point.pct : null;
+				}),
 				mode: 'lines+markers',
 				name: country,
 				line: { width: 2, color },
 				marker: { size: 5, color },
-				textfont: { color },
-				customdata: countryData.map((d) => formatPct(d.pct)),
-				hovertemplate: `<b>${country}</b><br>%{customdata}<extra></extra>`
+				connectgaps: true,
+				customdata: yearLevels.map((year) => {
+					const point = countryData.find((d) => d.year === year);
+					return point ? formatPct(point.pct) : '';
+				}),
+				hovertemplate: `<b>${country}</b><br>%{customdata}<extra></extra>`,
 			});
 		});
-
-		const lastPoints = countries
-			.map((country) => {
-				const countryData = data
-					.filter((d) => d.country === country)
-					.sort((a, b) => yearLevels.indexOf(a.year) - yearLevels.indexOf(b.year));
-				return countryData[countryData.length - 1];
-			})
-			.filter(Boolean);
-
-		const spreadPoints = spreadLastLabels(lastPoints, 3.2, 20, 100);
 
 		const layout: any = {
 			xaxis: {
@@ -205,254 +160,369 @@
 				type: 'category',
 				categoryorder: 'array',
 				categoryarray: yearLevels,
+				range: [-0.5, yearLevels.length - 0.5],
+				fixedrange: true,
 				tickangle: 45,
-				fixedrange: true
 			},
 			yaxis: {
 				title: 'Agreeing respondents (%)',
-				range: [20, 100]
+				range: [20, 100],
+				tickformat: '.0f',
+				ticksuffix: '%',
 			},
 			showlegend: true,
-				legend: {
-					x: 1.03,
-					y: 1,
-					xanchor: 'left',
-					yanchor: 'top',
-					font: { size: 11 }
-				},
+			legend: {
+				x: 1.03,
+				y: 1,
+				xanchor: 'left',
+				yanchor: 'top',
+				font: { size: 11 }
+			},
 			margin: { l: 60, r: 170, t: 30, b: 100 },
-			font: { size: 13 },
+			font: { family: 'Georgia, serif', size: 13 },
 			hovermode: 'closest',
 			plot_bgcolor: 'white',
 			paper_bgcolor: 'white'
 		};
 
-		const config = {
-			responsive: true,
-			displayModeBar: true
-		};
+		const config = { responsive: true, displayModeBar: true };
 
 		await Plotly.newPlot('plot', traces, layout, config);
 	});
 </script>
 
+<div class="page">
 <div class="article">
 
-	<h1>Support for democracy in the Arab world persists</h1>
-	<p class="dek">
-		New Arab Barometer data shows diverging but stable optimistic trends across countries over time.
-	</p>
-	<p>
-		15 years after the Arab spring, public commitment to democracy appears remarkably resilient, even as real-world democratic experiences - including democratic backsliding, authoritarian consolidation and persistent instability- have often fallen short of expectations.
-	</p>
-	<p>
-		The data behind this analysis comes from the 
-		<a
-		href="https://www.arabbarometer.org/survey-data/#surveys-grid"
-		target="_blank"
-		rel="noopener noreferrer"
-	>  Arab Barometer
-	</a>
-		,the region’s largest public opinion survey project. Since 2006, it has interviewed more than 135,000 people across 16 countries, using nationally representative samples and face-to-face surveys. 
-		The team consistently managed to conduct representative surveys with around 2000 respondents per country.
-		At the heart of this article is a simple but powerful question: do people believe that <span class="highlight">“democratic systems may have problems, yet they are better than other systems”?</span>  Rather than measuring satisfaction with current politics, the question captures whether demoracy still holds as a general ideal.
-	</p>
-	<div class="chart-header">
-	<h2>Backing for Democracy Remains Consistently Above 50%</h2>
-
-	<p class="chart-subtitle">
-		Share of respondents agreeing that democratic systems, despite their problems,
-		are better than other forms of government, by survey wave.
-	</p>
-
-	<p class="chart-source">
-		Source: Arab Barometer Waves II–VIII
-	</p>
+	<div class="article-header">
+		<p class="kicker">Data Analysis · Arab Barometer</p>
+		<h1>Support for democracy in the Arab world persists</h1>
+		<p class="dek">
+			Despite wars, coups and crackdowns, more than half of people across 13 Arab countries still back democracy — in every single survey wave since 2010.
+		</p>
+		<p class="byline">By Sophia Hiss · May 2026</p>
+		<div class="header-rule"></div>
 	</div>
+
+	<p>
+		15 years after the Arab Spring, public commitment to democracy appears remarkably resilient,
+		even as real-world democratic experiences — including democratic backsliding, authoritarian
+		consolidation and persistent instability — have often fallen short of expectations.
+	</p>
+	<p>
+		The data behind this analysis comes from the
+		<a href="https://www.arabbarometer.org/survey-data/#surveys-grid" target="_blank" rel="noopener noreferrer">Arab Barometer</a>,
+		the region's largest public opinion survey project. Since 2010, it has interviewed more than
+		135,000 people across 16 countries, using nationally representative samples and face-to-face
+		surveys of around 2,000 respondents per country. At the heart of this article is a simple but
+		powerful question: do people believe that <span class="highlight">"democratic systems may have
+		problems, yet they are better than other systems"?</span> Rather than measuring satisfaction
+		with current politics, the question captures whether democracy still holds as a general ideal.
+	</p>
+
+	<div class="chart-header">
+		<h2>Backing for Democracy Remains Consistently Above 50%</h2>
+		<p class="chart-subtitle">
+			Share of respondents agreeing that democratic systems, despite their problems,
+			are better than other forms of government, by survey wave.
+		</p>
+		<p class="chart-source">Source: Arab Barometer Waves II–VIII</p>
+	</div>
+
 	<div class="country-selector">
-	<button onclick={showAllCountries}>All countries</button>
-	<button onclick={clearAllCountries}>Clear all</button>
+		<button onclick={showAllCountries}>All countries</button>
+		<button onclick={clearAllCountries}>Clear all</button>
+		{#each countries as country (country)}
+			<label>
+				<input
+					type="checkbox"
+					checked={selectedCountries.includes(country)}
+					onchange={(event) => {
+						const input = event.currentTarget as HTMLInputElement;
+						setCountry(country, input.checked);
+					}}
+				/>
+				<span style={`color: ${getCountryColor(country)}`}>{country}</span>
+			</label>
+		{/each}
+	</div>
 
-				{#each countries as country (country)}
-					<label>
-						<input
-							type="checkbox"
-							checked={selectedCountries.includes(country)}
-							onchange={(event) => {
-								const input = event.currentTarget as HTMLInputElement;
-								setCountry(country, input.checked);
-							}}
-						/>
-						<span style={`color: ${getCountryColor(country)}`}>
-							{country}
-						</span>
-					</label>
-				{/each}
-			</div>
+	{#if selectedCountries.length === 0}
+		<p class="empty-chart-note">Select a country above to display data.</p>
+	{/if}
 
-			<div id="plot"></div>
+	<div id="plot"></div>
 
 	<h2>The surprising story</h2>
 
 	<p>
-		Strong support for democracy is not limited to countries with
-		direct experience of democratic transition. Even societies that have never lived under a fully
-		democratic system — such as Algeria, Jordan or Kuwait — show varying but consistently high
-		support for democracy compared with other forms of governance. In Jordan and Kuwait, support
-		in some waves approaches 90 percent.
+		Strong support for democracy is not limited to countries with direct experience of democratic
+		transition. Even societies that have never lived under a fully democratic system — such as
+		Algeria, Jordan or Kuwait — show varying but consistently high support for democracy compared
+		with other forms of governance. In Jordan and Kuwait, support in some waves approaches 90 percent.
+	</p>
 
 	<p>Is this simply wishful thinking — support for an abstract ideal disconnected from political reality?</p>
-		
-<p>
-		Obviously not! If support were merely symbolic, one might expect it to collapse where democratic experiments
-		have disappointed. Yet countries that did experience democratic openings and subsequent
-		backsliding show similarly resilient patterns. 
-		<br>
-		<br>
-		Tunisia is the clearest example: Here, support for democracy has actually grown since 2011 — even as the country has undergone a profound democratic backslide in recent years. Once hailed as the Arab Spring’s only success story, Tunisia has, since 2021, seen a steady concentration of power in the presidency: the parliament was suspended in 2021, rule by decree became the norm, and the new constitution of 2022 cemented a hyper-presidential system.
-		Thus, Institutions that once anchored the democratic transition have been systematically hollowed out since 
-		<a href="https://bti-project.org/en/reports/country-report/TUN"
-		target="_blank"
-		rel="noopener noreferrer"
-		> 2021</a>
-		,while opposition figures face arrest on vague charges of “conspiracy against the state.” Public debate has retreated into whispers, and a climate of fear increasingly shapes everyday life. 
-		The persistence — and even rise — of pro-democracy sentiment therefore is striking. It suggests that, for many Tunisians, democracy remains a powerful normative ideal, even as its institutional reality has been progressively dismantled.
+
 	<p>
+		Not quite. If support were merely symbolic, one might expect it to collapse where democratic
+		experiments have disappointed. Yet countries that did experience democratic openings and
+		subsequent backsliding show similarly resilient patterns.
+	</p>
+
+	<p>
+		Tunisia is the clearest example. Support for democracy has actually grown since 2011 — even as
+		the country has undergone a profound democratic backslide. Once hailed as the Arab Spring's only
+		success story, Tunisia has since 2021 seen a steady concentration of power in the presidency:
+		the parliament was suspended, rule by decree became the norm, and the 2022 constitution cemented
+		a hyper-presidential system. Institutions that once anchored the democratic transition have been
+		systematically hollowed out, while opposition figures face arrest on vague charges of "conspiracy
+		against the state."
+		<a href="https://bti-project.org/en/reports/country-report/TUN" target="_blank" rel="noopener noreferrer">The Bertelsmann Transformation Index documents the decline in detail.</a>
+		The persistence — and even rise — of pro-democracy sentiment is therefore striking. It suggests
+		that, for many Tunisians, democracy remains a powerful normative ideal, even as its institutional
+		reality has been progressively dismantled.
+	</p>
+
+	<p>
+		Yemen also tells a stark story. Its support for democracy fell from 72% in 2010–11 to just 52%
+		by 2018–19 — the sharpest single-country decline in the dataset, and the only reading below 55%
+		across all waves and countries. The timing is not coincidental: the survey was conducted in the
+		middle of a devastating civil war. Rather than undermining the overall argument, Yemen's
+		trajectory may illustrate its limit — that sustained violent conflict can erode even deeply held
+		democratic aspirations.
+	</p>
+
+	<p>
+		Two other trajectories deserve attention. Morocco's support dropped sharply from 63% in 2018–19
+		to 54% in 2021–22, its lowest recorded level, before recovering to 73% in 2023–24 — a
+		volatility that may reflect the economic pressures of the pandemic period. Kuwait, meanwhile,
+		moved in the opposite direction, surging from 62% in 2018–19 to 84% in 2021–22. This rise
+		coincided with a period of intense parliamentary conflict and constitutional crisis in Kuwait,
+		suggesting that political turbulence can sharpen, rather than dampen, democratic aspirations.
+	</p>
 
 	<h2>Why this matters</h2>
+
 	<p>
-	As the data shows, even under conditions of democratic backsliding or complete absence of demoratic experience, people continue to mobilize and defend the idea of
-	accountability in public life.
-</p>
+		As the data shows, even under conditions of democratic backsliding or the complete absence of
+		democratic experience, people continue to mobilise and defend the idea of accountability in
+		public life.
+	</p>
 
-<p>
-	This was visible again in 2025 when in the
-	<a
-		href="https://www.reuters.com/world/tunisians-revive-protests-gabes-over-pollution-state-chemical-plant-2025-12-17/"
-		target="_blank"
-		rel="noopener noreferrer"
-	> southern region of Gabes,
-	</a>
-	Tunisians returned to the streets in massive protests against policy failures and environmental degradation. These demonstrations were not only about
-	environmental harm, but also about neglect and dignity.
-</p>
+	<p>
+		This was visible again in 2025 when in the
+		<a href="https://www.reuters.com/world/tunisians-revive-protests-gabes-over-pollution-state-chemical-plant-2025-12-17/"
+			target="_blank" rel="noopener noreferrer">southern Tunisian region of Gabès</a>,
+		citizens returned to the streets in massive protests against policy failures and environmental
+		degradation — not only about environmental harm, but about neglect and dignity.
+	</p>
 
-<p>
-	What this underlines is that civil society in many countries has not given up.
-	Supporting these actors matters, because where democracy is being weakened from above, its
-	defence often survives from below.
-</p>
+	<p>
+		What this underlines is that civil society in many countries has not given up. Supporting these
+		actors matters, because where democracy is being weakened from above, its defence often
+		survives from below.
+	</p>
+
+	<footer class="article-footer">
+		<p>Data: <a href="https://www.arabbarometer.org" target="_blank" rel="noopener noreferrer">Arab Barometer</a> Waves II–VIII (2010–2024). Analysis and visualisation by Sophia Hiss.</p>
+	</footer>
+
+</div>
 </div>
 
 <style>
-
-/* ===== Article ===== */
-.article {
-	max-width: 720px;
-	margin: auto;
-	font-family: Georgia, serif;
-	line-height: 1.6;
-}
-
-h1 {
-	font-size: 2.5rem;
-	margin-bottom: 0.5rem;
-}
-
-.dek {
-	font-size: 1.2rem;
-	color: #666;
-	margin-bottom: 1.5rem;
-}
-.chart-header {
-	margin-top: 2rem;
-	margin-bottom: 0.8rem;
-	border-top: 2px solid #111;
-	padding-top: 0.8rem;
-}
-
-.chart-header h2 {
-	margin: 0;
-	font-size: 1.8rem;
-	line-height: 1.2;
-	font-weight: 700;
-}
-
-.chart-subtitle {
-	margin-top: 0.4rem;
-	margin-bottom: 0.35rem;
-	font-size: 1rem;
-	color: #555;
-	max-width: 650px;
-}
-
-.chart-source {
-	margin: 0;
-	font-size: 0.8rem;
-	color: #888;
-	text-transform: uppercase;
-	letter-spacing: 0.03em;
-}
-
-#plot {
-	margin: 2rem 0;
-}
-
-.caption {
-	font-size: 0.9rem;
-	color: #777;
-}
-
-h2 {
-	margin-top: 2rem;
-}
-.highlight {
-	font-weight: 700;
-	color: #d35400c9;
-}
-
-/* ===== PLOT ===== */
-	.title-wrap {
-		margin-bottom: 0.5rem;
+	/* ===== Page wrapper ===== */
+	.page {
+		background-color: #faf9f7;
+		min-height: 100vh;
+		padding: 3rem 1rem 5rem;
 	}
 
-	.title-wrap h2 {
-		margin: 0;
-		font-size: 1.9rem;
+	/* ===== Article ===== */
+	.article {
+		max-width: 680px;
+		margin: 0 auto;
+		font-family: Georgia, 'Times New Roman', serif;
+		font-size: 1.05rem;
+		line-height: 1.75;
+		color: #1a1a1a;
+	}
+
+	/* ===== Header block ===== */
+	.article-header {
+		margin-bottom: 2rem;
+	}
+
+	.kicker {
+		font-family: Arial Narrow, Arial, sans-serif;
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+		color: #888;
+		margin: 0 0 0.75rem 0;
+	}
+
+	h1 {
+		font-size: 2.4rem;
+		line-height: 1.15;
 		font-weight: 700;
+		margin: 0 0 0.75rem 0;
+		color: #111;
 	}
 
-	.title-wrap p {
-		margin: 0.25rem 0 0 0;
-		color: #666;
-		font-size: 1rem;
+	.dek {
+		font-size: 1.15rem;
+		line-height: 1.5;
+		color: #444;
+		margin: 0 0 0.85rem 0;
+		font-style: italic;
 	}
 
-	#plot {
-		width: 120%;
-		height: 500px;
+	.byline {
+		font-family: Arial Narrow, Arial, sans-serif;
+		font-size: 0.82rem;
+		color: #888;
+		margin: 0 0 1.25rem 0;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
 	}
+
+	.header-rule {
+		border: none;
+		border-top: 3px solid #111;
+		margin-bottom: 1.75rem;
+	}
+
+	/* ===== Body text ===== */
+	p {
+		margin: 0 0 1.2rem 0;
+	}
+
+	a {
+		color: #1a1a1a;
+		text-decoration: underline;
+		text-decoration-color: #ccc;
+		text-underline-offset: 3px;
+		transition: text-decoration-color 0.15s;
+	}
+
+	a:hover {
+		text-decoration-color: #1a1a1a;
+	}
+
+	.highlight {
+		font-weight: 700;
+		color: #c0392b;
+		font-style: italic;
+	}
+
+	/* ===== Section headings ===== */
+	h2 {
+		font-size: 1.35rem;
+		font-weight: 700;
+		margin: 2.5rem 0 0.75rem 0;
+		color: #111;
+		padding-top: 1.5rem;
+		border-top: 1px solid #ddd;
+	}
+
+	/* ===== Chart header ===== */
+	.chart-header {
+		margin-top: 2.5rem;
+		margin-bottom: 0.5rem;
+		border-top: 2px solid #111;
+		padding-top: 0.85rem;
+	}
+
+	.chart-header h2 {
+		border-top: none;
+		padding-top: 0;
+		margin-top: 0;
+		font-size: 1.2rem;
+		line-height: 1.3;
+	}
+
+	.chart-subtitle {
+		margin: 0.35rem 0 0.3rem;
+		font-size: 0.92rem;
+		color: #555;
+		font-style: italic;
+	}
+
+	.chart-source {
+		margin: 0 0 0.5rem;
+		font-family: Arial Narrow, Arial, sans-serif;
+		font-size: 0.75rem;
+		color: #999;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	/* ===== Country selector ===== */
 	.country-selector {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.6rem 1rem;
-		margin: 1.5rem 0 0.5rem 0;
-		font-size: 0.85rem;
+		gap: 0.4rem 0.75rem;
+		margin: 0.75rem 0 0.25rem;
+		font-family: Arial Narrow, Arial, sans-serif;
+		font-size: 0.82rem;
+		align-items: center;
 	}
 
 	.country-selector label {
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
+		gap: 0.3rem;
 		cursor: pointer;
 	}
 
+	.country-selector label:hover span {
+		text-decoration: underline;
+	}
+
 	.country-selector button {
-		border: 1px solid #ccc;
+		border: 1px solid #bbb;
 		background: white;
-		padding: 0.25rem 0.6rem;
-		border-radius: 4px;
+		padding: 0.2rem 0.65rem;
+		border-radius: 3px;
 		cursor: pointer;
 		font-family: inherit;
+		font-size: 0.78rem;
+		color: #444;
+		transition: background 0.15s;
+	}
+
+	.country-selector button:hover {
+		background: #f0f0f0;
+	}
+
+	/* ===== Plot ===== */
+	#plot {
+		width: 100%;
+		min-height: 480px;
+		margin: 0.5rem 0 2rem;
+	}
+
+	.empty-chart-note {
+		text-align: center;
+		color: #aaa;
+		font-style: italic;
+		padding: 1rem 0;
+		font-size: 0.9rem;
+	}
+
+	/* ===== Article footer ===== */
+	.article-footer {
+		margin-top: 3rem;
+		padding-top: 1rem;
+		border-top: 1px solid #ddd;
+		font-family: Arial Narrow, Arial, sans-serif;
+		font-size: 0.78rem;
+		color: #999;
+	}
+
+	.article-footer a {
+		color: #999;
 	}
 </style>
