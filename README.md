@@ -73,6 +73,10 @@ Fields:
 - R (data cleaning and aggregation)  
 - GitHub Pages (publishing)
 
+## AI disclosure 
+
+Claude Code supported the interactive design and rendering of the data visualisation. Data cleaning, wrangling, analysis, interpretation, and all writing are the author's own.
+
 ## Files
 
 - `src/routes/+page.svelte` — main article and visualization  
