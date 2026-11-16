@@ -3,7 +3,7 @@
 An interactive data story exploring public support for democracy across the Arab world using Arab Barometer survey data.
 
 ## View the article
-👉 https://data-journalism-26.github.io/data-bit-2-sophiahiss/
+👉 
 
 ---
 
