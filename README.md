@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Support for Democracy in the Arab World Persists
 
 An interactive data story exploring public support for democracy across the Arab world using Arab Barometer survey data.
@@ -102,7 +101,3 @@ Fields:
 Sophia Hiss
 Master in International Affairs, Hertie School
 Data Journalism, Spring 2026
-=======
-# Data-Bit-2-Democracy-in-the-Arab-World
-inIInteractive data story exploring public support for democracy across the Arab world using Arab Barometer survey data.
->>>>>>> origin/main
