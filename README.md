@@ -3,7 +3,7 @@
 An interactive data story exploring public support for democracy across the Arab world using Arab Barometer survey data.
 
 ## View the article
-👉 
+👉 https://sophiahiss2000-jpg.github.io/Data-Bit-2-Democracy-in-the-Arab-World/
 
 ---
 
